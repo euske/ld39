@@ -13,9 +13,9 @@
 let FONT: Font;
 let SPRITES:ImageSpriteSheet;
 addInitHook(() => {
-    FONT = new ShadowFont(IMAGES['font'], 'white');
+    FONT = new ShadowFont(APP.images['font'], 'white');
     SPRITES = new ImageSpriteSheet(
-	IMAGES['sprites'], new Vec2(32,32), new Vec2(16,16));
+	APP.images['sprites'], new Vec2(32,32), new Vec2(16,16));
 });
 
 
@@ -23,12 +23,13 @@ addInitHook(() => {
 //
 class Player extends Entity {
 
-    scene: Game;
+    game: Game;
     usermove: Vec2;
+    flying: number = 0;
 
-    constructor(scene: Game, pos: Vec2) {
+    constructor(game: Game, pos: Vec2) {
 	super(pos);
-	this.scene = scene;
+	this.game = game;
 	this.imgsrc = SPRITES.get(1);
 	this.collider = this.imgsrc.getBounds();
 	this.usermove = new Vec2();
@@ -36,15 +37,28 @@ class Player extends Entity {
 
     update() {
 	super.update();
-	if (this.scene.started) {
+	if (this.game.started) {
+	    if (0 < this.flying) {
+		this.usermove.y -= 8/this.flying;
+		this.flying -= 1;
+	    } else {
+		this.usermove.y += 0.5;
+	    }
+	    this.usermove.y = clamp(-4, this.usermove.y, +4);
 	    this.moveIfPossible(this.usermove);
-	    this.usermove.y += 0.5;
-	    this.usermove.y = upperbound(4, this.usermove.y);
 	}
     }
     
-    fly() {
-	this.usermove.y -= 4;
+    fly(flying: boolean) {
+	if (flying) {
+	    if (!this.game.started) {
+		this.game.started = true;
+	    } else if (this.flying == 0) {
+		this.flying = 4;
+	    }
+	} else {
+	    this.flying = 0;
+	}
     }
 }
 
@@ -54,11 +68,12 @@ class Player extends Entity {
 class Game extends GameScene {
 
     clouds: StarImageSource;
+    oceans: StarImageSource;
     player: Player;
-    started: boolean;
     sign1: TextBox;
     sign2: TextBox;
     
+    started: boolean;
     scoreBox: TextBox;
     score: number;
     
@@ -69,6 +84,9 @@ class Game extends GameScene {
 	this.add(this.player);
 	let cloud = new RectImageSource('rgb(255,255,255,0.8)', new Rect(-10,-5,20,10));
 	this.clouds = new StarImageSource(this.screen, 20, 10, [cloud]);
+	let ocean = new RectImageSource('rgb(200,255,255)', new Rect(-4,-1,8,2));
+	this.oceans = new StarImageSource(this.screen, 100, 2, [ocean]);
+
 	this.started = false;
 	this.score = 0;
 	this.updateScore();
@@ -83,31 +101,37 @@ class Game extends GameScene {
 
     update() {
 	super.update();
-	this.clouds.move(new Vec2(-1, 0));
+	if (this.started) {
+	    this.clouds.move(new Vec2(-1, 0));
+	    this.oceans.move(new Vec2(-4, 0));
+	}
     }
 
     onButtonPressed(keysym: KeySym) {
-	if (this.started) {
-	    this.player.fly();
-	} else {
-	    this.started = true;
-	}
+	this.player.fly(true);
+    }
+    onButtonReleased(keysym: KeySym) {
+	this.player.fly(false);
     }
     onMouseDown(p: Vec2, button: number) {
-	if (this.started) {
-	    this.player.fly();
-	} else {
-	    this.started = true;
-	}
+	this.player.fly(true);
+    }
+    onMouseUp(p: Vec2, button: number) {
+	this.player.fly(false);
     }
 
     render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
-	const sky = 180;
+	const sealevel = 40;
+	ctx.save();
+	ctx.translate(0, -sealevel);
 	ctx.fillStyle = 'rgb(80,200,230)';
-	ctx.fillRect(bx, by, this.screen.width, sky);
-	ctx.fillStyle = 'rgb(0,0,255)';
-	ctx.fillRect(bx, by+sky, this.screen.width, this.screen.height-sky);
+	ctx.fillRect(bx, by, this.screen.width, this.screen.height);
 	this.clouds.render(ctx);
+	ctx.translate(0, this.screen.height);
+	ctx.fillStyle = 'rgb(0,0,255)';
+	ctx.fillRect(bx, by, this.screen.width, this.screen.height-sealevel);
+	this.oceans.render(ctx);
+	ctx.restore();
 	super.render(ctx, bx, by);
 	this.scoreBox.render(ctx);
 	this.sign1.render(ctx);
