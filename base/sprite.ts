@@ -361,15 +361,13 @@ class ImageSpriteSheet extends SpriteSheet {
 }
 
 
-/** Object that has a size and z-order and draws itself on screen.
+/** Object that has a size and rotation and draws itself on screen.
  *  It can also interact with mouse/touch.
  */
 class Sprite {
 
     /** True if this sprite is rendered. */
     visible: boolean = true;
-    /** Z-Order of the sprite. */
-    zOrder: number = 0;
     /** Image scaling. Negative values can be used for flipped images. */
     scale: Vec2 = new Vec2(1, 1);
     /** Image rotation (in radian). */
