@@ -121,7 +121,7 @@ class Player extends Entity {
     tempend: number = 0;
 
     constructor(game: Game) {
-	super(null);
+	super(game.screen.center());
 	this.game = game;
 	this.imgsrc = SPRITES.get(1);
 	this.collider = this.imgsrc.getBounds();
@@ -282,10 +282,15 @@ class Birdy extends Thingy {
 	super(game);
 	this.imgsrc = SPRITES.get(4);
 	this.collider = this.imgsrc.getBounds();
+	this.movement.y = rnd(5)-2;
     }
     update() {
 	super.update();
 	this.imgsrc = SPRITES.get(4, phase(getTime(), 0.8));
+	this.movement.y -= this.movement.y*0.5;
+	if (rnd(30) == 0) {
+	    this.movement.y += rnd(9)-4;
+	}
     }
 }
 
@@ -310,6 +315,10 @@ class Lightning extends Thingy {
     }
     update() {
 	super.update();
+	this.imgsrc = SPRITES.get(6, phase(getTime(), 0.4));
+	if (rnd(30) == 0) {
+	    this.movement.y = rnd(5)-2;
+	}
     }
 }
 
@@ -321,6 +330,8 @@ class Game extends GameScene {
     player: Player;
     
     clouds: StarImageSource;
+    rains: StarImageSource;
+    snows: StarImageSource;
     oceans: OceanImageSource;
     balloon: Balloon;
     
@@ -343,13 +354,18 @@ class Game extends GameScene {
 			  this.player.died);
 	this.add(this.player);
 	
-	let cloud = new RectImageSource('rgb(255,255,255,0.8)', new Rect(-10,-5,20,10));
 	this.clouds = new StarImageSource(
-	    this.screen, 20, 10,
+	    this.screen, 20, 8,
 	    [SPRITES.get(0,0), SPRITES.get(0,1)]);
+	this.rains = new StarImageSource(
+	    this.screen, 100, 4, 
+	    [new RectImageSource('rgb(255,255,255,0.8)', new Rect(0,0,1,8)),
+	     new RectImageSource('rgb(255,255,255)', new Rect(0,0,1,4))]);
+	this.snows = new StarImageSource(
+	    this.screen, 100, 4, 
+	    [new RectImageSource('rgb(255,255,255)', new Rect(-2,-2,4,4))]);
 	this.oceans = new OceanImageSource(new Rect(0, 0, this.screen.width, 80), 100);
 	this.balloon = new Balloon(this.screen.resize(160,32,0,0).move(0,-32));
-	this.layer.addWidget(this.balloon);
 
 	this.distRect1 = this.screen.resize(240,8,0,+1).move(0.5,10.5);
 	this.distRect2 = this.screen.resize(237,5,0,+1).move(1,12);
@@ -363,7 +379,7 @@ class Game extends GameScene {
 	this.stage = 0;
 	this.speed = 1;
 	this.deltaspeed = 0;
-	this.distance = 3000;
+	this.distance = 0;
 	this.nextobj = 0;
 	this.weather = 0;
 	
@@ -424,12 +440,13 @@ class Game extends GameScene {
 		this.balloon.setText('OMG RAIN!');
 	    }
 	    this.weather = 1;
+	    this.rains.move(new Vec2(-this.speed, 12.0));
 	    this.deltaspeed = +0.005;
 	    if (this.nextobj <= 0) {
 		this.add((rnd(2) == 0)? new Birdy(this) : new Lightning(this));
 		this.nextobj = rnd(80)+20;
 	    }
-	} else if (distance < 2500) {
+	} else if (distance < 2600) {
 	    this.weather = 0;
 	    this.deltaspeed = -0.01;
 	} else if (distance < 3600) {
@@ -438,6 +455,7 @@ class Game extends GameScene {
 		this.balloon.setText('MOAR ENEMIES!');
 	    }
 	    this.weather = 1;
+	    this.rains.move(new Vec2(-this.speed, 12.0));
 	    this.deltaspeed = +0.001;
 	    if (this.nextobj <= 0) {
 		this.add((rnd(2) == 0)? new Lightning(this) : new Airplane(this));
@@ -449,6 +467,7 @@ class Game extends GameScene {
 		this.balloon.setText('SNOW!?');
 	    }
 	    this.weather = 2;
+	    this.snows.move(new Vec2(-this.speed, 2.0));
 	    this.deltaspeed = 0;
 	    if (this.nextobj <= 0) {
 		switch (rnd(3)) {
@@ -486,7 +505,6 @@ class Game extends GameScene {
 	    oceanColor = 'rgb(0,100,160)';
 	    break;
 	case 2:
-	case 3:
 	    skyColor = 'rgb(140,60,160)';
 	    oceanColor = 'rgb(0,0,100)';
 	    break;
@@ -501,8 +519,19 @@ class Game extends GameScene {
 		     this.screen.width, this.screen.height-seaLevel);
 	this.oceans.render(ctx);
 	ctx.restore();
+	switch (this.weather) {
+	case 1:
+	    this.rains.render(ctx);
+	    break;
+	case 2:
+	    this.snows.render(ctx);
+	    break;
+	}
 	super.render(ctx);
 	// HUD
+	if (this.balloon.sprite.visible) {
+	    this.balloon.sprite.render(ctx);
+	}
 	ctx.strokeStyle = 'white';
 	ctx.strokeRect(this.distRect1.x, this.distRect1.y,
 		       this.distRect1.width, this.distRect1.height);
@@ -517,15 +546,17 @@ class Game extends GameScene {
 	if (6000 <= this.distance) {
 	    this.balloon.hide();
 	    let textbox = new TextBox(this.screen.resize(228,80,0,0).move(0,-20), FONT);
-	    textbox.padding = 4;
+	    textbox.padding = 6;
 	    textbox.lineSpace = 8;
 	    textbox.background = 'rgb(0,0,0,0.7)';
 	    let dialog = new DialogBox(textbox);
 	    this.add(dialog);
 	    dialog.addDisplay('DID YOU REALLY THINK\n')
 	    dialog.addDisplay('THIS WILL MAKE IT?\n')
+	    dialog.addPause(1);
 	    dialog.addDisplay('ANYWAY, THANKS FOR TRYING.\n')
-	    dialog.addDisplay('LUDUM DARE 39')
+	    dialog.addPause(1);
+	    dialog.addDisplay('MADE FOR LUDUM DARE 39')
 	} else {
 	    this.init();
 	}
