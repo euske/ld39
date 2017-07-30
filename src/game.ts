@@ -281,7 +281,7 @@ class Birdy extends Thingy {
     constructor(game: Game) {
 	super(game);
 	this.imgsrc = SPRITES.get(4);
-	this.collider = this.imgsrc.getBounds();
+	this.collider = this.imgsrc.getBounds().inflate(-2,-6);
 	this.movement.y = rnd(5)-2;
     }
     update() {
@@ -299,7 +299,7 @@ class Airplane extends Thingy {
 	super(game);
 	this.imgsrc = SPRITES.get(5);
 	this.movement = new Vec2(-2, (rnd(3)-1)*0.2);
-	this.collider = this.imgsrc.getBounds();
+	this.collider = this.imgsrc.getBounds().inflate(-2,-4);
     }
     update() {
 	super.update();
@@ -311,7 +311,7 @@ class Lightning extends Thingy {
     constructor(game: Game) {
 	super(game);
 	this.imgsrc = SPRITES.get(6);
-	this.collider = this.imgsrc.getBounds();
+	this.collider = this.imgsrc.getBounds().inflate(-8,-8);;
     }
     update() {
 	super.update();
