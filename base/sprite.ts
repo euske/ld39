@@ -277,7 +277,7 @@ class StarImageSource implements ImageSource {
 	    let rect = star.p.expand(star.s, star.s);
 	    if (!this.bounds.overlapsRect(rect)) {
 		star.init(this.maxdepth);
-		star.p = this.bounds.modpt(star.p);
+		star.p = this.bounds.modPt(star.p);
 	    }
 	}
     }
