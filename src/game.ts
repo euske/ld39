@@ -86,14 +86,20 @@ class Balloon extends Widget {
     }
 
     setText(text: string, duration=2) {
+	this.textbox.clear();
 	this.textbox.putText([text], 'center', 'center');
 	this.sprite.visible = true;
 	this.hideTime = getTime()+duration;
     }
 
+    hide() {
+	this.hideTime = 0;
+	this.sprite.visible = false;
+    }
+
     update() {
 	if (this.hideTime < getTime()) {
-	    this.sprite.visible = false;
+	    this.hide();
 	}
     }
 }
@@ -112,7 +118,6 @@ class Player extends Entity {
     state: number = 0;
     usermove: Vec2 = new Vec2();
 
-    tempstate: number = 0;
     tempend: number = 0;
 
     constructor(game: Game) {
@@ -156,12 +161,16 @@ class Player extends Entity {
     update() {
 	super.update();
 	let state = this.state;
-	if (this.tempstate != 0) {
-	    state = this.tempstate;
+	if (state != DEAD) {
+	    if (this.game.weather != 0) {
+		state = this.game.weather+1;
+	    }	    
 	    if (this.tempend < getTime()) {
-		this.tempstate = 0;
+		this.tempend = 0;
+	    } else {
+		state = Math.min(state+1, 4);
 	    }
-	}
+	}	    
 	switch (state) {
 	case 1:
 	    if (0 < this.flying) {
@@ -184,6 +193,13 @@ class Player extends Entity {
 	    this.imgsrc = SPRITES.get(3, phase(getTime(), 0.2));
 	    this.update2();
 	    break;
+	case 4:
+	    if (0 < this.flying) {
+		this.usermove.y = this.usermove.y*0.5 - 0.1;
+	    }
+	    this.imgsrc = SPRITES.get(3, phase(getTime(), 0.2));
+	    this.update2();
+	    break;
 	case DEAD:
 	    this.imgsrc = SPRITES.get(9, phase(getTime(), 0.2));
 	    break;
@@ -202,6 +218,7 @@ class Player extends Entity {
     }
 
     fly(flying: boolean) {
+	if (this.state == DEAD) return;
 	let duration = 0;
 	switch (this.state) {
 	case 0:
@@ -217,6 +234,7 @@ class Player extends Entity {
 	    duration = 10;
 	    break;
 	case 3:
+	case 4:
 	    duration = 5;
 	    break;
 	}	    
@@ -229,13 +247,13 @@ class Player extends Entity {
     }
 
     collidedWith(entity: Entity) {
+	if (this.state == DEAD) return;
 	if (entity instanceof Birdy ||
 	    entity instanceof Airplane ||
 	    entity instanceof Lightning) {
-	    if (this.tempstate == 0) {
-		APP.playSound('hurt');
-		this.tempstate = Math.min(this.state+1, 3);
+	    if (this.tempend == 0) {
 		this.tempend = getTime()+2.0;
+		APP.playSound('hurt');
 	    }
 	}
     }
@@ -310,23 +328,27 @@ class Game extends GameScene {
     distRect2: Rect;
     sign1: TextBox;
     sign2: TextBox;
-    
+
+    stage: number;
     speed: number;
+    deltaspeed: number;
     distance: number;
     nextobj: number;
+    weather: number;
     
     init() {
 	super.init();
 	this.player = new Player(this);
-	this.player.chain(new DelayTask(2, () => { this.init(); }),
+	this.player.chain(new DelayTask(2, () => { this.gameover(); }),
 			  this.player.died);
 	this.add(this.player);
 	
 	let cloud = new RectImageSource('rgb(255,255,255,0.8)', new Rect(-10,-5,20,10));
-	this.clouds = new StarImageSource(this.screen, 20, 10,
-					  [SPRITES.get(0,0), SPRITES.get(0,1)]);
+	this.clouds = new StarImageSource(
+	    this.screen, 20, 10,
+	    [SPRITES.get(0,0), SPRITES.get(0,1)]);
 	this.oceans = new OceanImageSource(new Rect(0, 0, this.screen.width, 80), 100);
-	this.balloon = new Balloon(this.screen.resize(200,32,0,0).move(0,-32));
+	this.balloon = new Balloon(this.screen.resize(160,32,0,0).move(0,-32));
 	this.layer.addWidget(this.balloon);
 
 	this.distRect1 = this.screen.resize(240,8,0,+1).move(0.5,10.5);
@@ -338,11 +360,14 @@ class Game extends GameScene {
 	this.sign2.lineSpace = 2;
 	this.sign2.putText(['SAN     >','FRANCISCO']);
 
+	this.stage = 0;
 	this.speed = 1;
-	this.distance = 1000;
+	this.deltaspeed = 0;
+	this.distance = 3000;
 	this.nextobj = 0;
+	this.weather = 0;
 	
-	this.balloon.setText('TAP A BUTTON TO FLY!!');
+	this.balloon.setText('TAP A BUTTON!!');
     }
 
     onButtonPressed(keysym: KeySym) {
@@ -360,24 +385,92 @@ class Game extends GameScene {
 
     update() {
 	super.update();
-	if (this.player.state != 0) {
+	if (this.player.state != 0 && this.player.state != DEAD) {
 	    this.balloon.update();
 	    this.clouds.move(new Vec2(-this.speed*0.1, 0));
 	    this.oceans.move(-this.speed*0.2);
 	    this.distance += this.speed;
+	    this.speed = clamp(1.0, this.speed+this.deltaspeed, 3.0);
 	    this.nextobj--;
-	    if (this.distance < 200) {
-		;
-	    } else if (this.distance < 1000) {
-		if (this.nextobj <= 0) {
-		    this.add((rnd(2) == 0)? new Birdy(this) : new Airplane(this));
-		    this.nextobj = rnd(100)+10;
-		}
-	    } else if (this.distance < 1200) {
-		;
-	    } else if (this.distance < 2000) {
-		;
+	    this.setEnvironment(this.distance);
+	}
+    }
+
+    setEnvironment(distance: number) {
+	if (distance < 200) {
+	    this.weather = 0;
+	    this.deltaspeed = 0;
+	} else if (distance < 1000) {
+	    if (this.stage != 1) {
+		this.stage = 1;
+		this.balloon.setText('OH, ENEMY.');
 	    }
+	    this.weather = 0;
+	    this.deltaspeed = +0.005;
+	    if (this.nextobj <= 0) {
+		this.add((rnd(2) == 0)? new Birdy(this) : new Airplane(this));
+		this.nextobj = rnd(100)+10;
+	    }
+	} else if (distance < 1200) {
+	    if (this.stage != 2) {
+		this.stage = 2;
+		this.balloon.setText('WHEW.');
+	    }
+	    this.weather = 0;
+	    this.deltaspeed = -0.02;
+	} else if (distance < 2400) {
+	    if (this.stage != 3) {
+		this.stage = 3;
+		this.balloon.setText('OMG RAIN!');
+	    }
+	    this.weather = 1;
+	    this.deltaspeed = +0.005;
+	    if (this.nextobj <= 0) {
+		this.add((rnd(2) == 0)? new Birdy(this) : new Lightning(this));
+		this.nextobj = rnd(80)+20;
+	    }
+	} else if (distance < 2500) {
+	    this.weather = 0;
+	    this.deltaspeed = -0.01;
+	} else if (distance < 3600) {
+	    if (this.stage != 4) {
+		this.stage = 4;
+		this.balloon.setText('MOAR ENEMIES!');
+	    }
+	    this.weather = 1;
+	    this.deltaspeed = +0.001;
+	    if (this.nextobj <= 0) {
+		this.add((rnd(2) == 0)? new Lightning(this) : new Airplane(this));
+		this.nextobj = rnd(80)+20;
+	    }
+	} else if (distance < 6000) {
+	    if (this.stage != 5) {
+		this.stage = 5;
+		this.balloon.setText('SNOW!?');
+	    }
+	    this.weather = 2;
+	    this.deltaspeed = 0;
+	    if (this.nextobj <= 0) {
+		switch (rnd(3)) {
+		case 0:
+		    this.add(new Birdy(this));
+		    break;
+		case 1:
+		    this.add(new Airplane(this));
+		    break;
+		case 2:
+		    this.add(new Lightning(this));
+		    break;
+		}
+		this.nextobj = rnd(50)+20;
+	    }
+	} else {
+	    if (this.stage != 6) {
+		this.stage = 6;
+		this.balloon.setText('WTF? WHY!?');
+	    }
+	    this.weather = 3;
+	    this.deltaspeed = 0;
 	}
     }
 
@@ -385,12 +478,25 @@ class Game extends GameScene {
 	let seaLevel = this.player.pos.y*0.1+40;
 	ctx.save();
 	ctx.translate(0, -seaLevel);
-	ctx.fillStyle = 'rgb(80,200,230)';
+	let skyColor = 'rgb(80,200,230)';
+	let oceanColor = 'rgb(0,0,255)';
+	switch (this.weather) {
+	case 1:
+	    skyColor = 'rgb(160,160,160)';
+	    oceanColor = 'rgb(0,100,160)';
+	    break;
+	case 2:
+	case 3:
+	    skyColor = 'rgb(140,60,160)';
+	    oceanColor = 'rgb(0,0,100)';
+	    break;
+	}
+	ctx.fillStyle = skyColor;
 	ctx.fillRect(this.screen.x, this.screen.y,
 		     this.screen.width, this.screen.height);
 	this.clouds.render(ctx);
 	ctx.translate(0, this.screen.height);
-	ctx.fillStyle = 'rgb(0,0,255)';
+	ctx.fillStyle = oceanColor;
 	ctx.fillRect(this.screen.x, this.screen.y,
 		     this.screen.width, this.screen.height-seaLevel);
 	this.oceans.render(ctx);
@@ -402,8 +508,26 @@ class Game extends GameScene {
 		       this.distRect1.width, this.distRect1.height);
 	ctx.fillStyle = 'rgb(0,128,0)';
 	ctx.fillRect(this.distRect2.x, this.distRect2.y,
-		     this.distance*0.03, this.distRect2.height);
+		     this.distance*0.04, this.distRect2.height);
 	this.sign1.render(ctx);
 	this.sign2.render(ctx);
+    }
+
+    gameover() {
+	if (6000 <= this.distance) {
+	    this.balloon.hide();
+	    let textbox = new TextBox(this.screen.resize(228,80,0,0).move(0,-20), FONT);
+	    textbox.padding = 4;
+	    textbox.lineSpace = 8;
+	    textbox.background = 'rgb(0,0,0,0.7)';
+	    let dialog = new DialogBox(textbox);
+	    this.add(dialog);
+	    dialog.addDisplay('DID YOU REALLY THINK\n')
+	    dialog.addDisplay('THIS WILL MAKE IT?\n')
+	    dialog.addDisplay('ANYWAY, THANKS FOR TRYING.\n')
+	    dialog.addDisplay('LUDUM DARE 39')
+	} else {
+	    this.init();
+	}
     }
 }
