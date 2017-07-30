@@ -379,7 +379,7 @@ class Game extends GameScene {
 	this.stage = 0;
 	this.speed = 1;
 	this.deltaspeed = 0;
-	this.distance = 0;
+	this.distance = 5000;
 	this.nextobj = 0;
 	this.weather = 0;
 	
@@ -449,7 +449,7 @@ class Game extends GameScene {
 	} else if (distance < 2600) {
 	    this.weather = 0;
 	    this.deltaspeed = -0.01;
-	} else if (distance < 3600) {
+	} else if (distance < 4000) {
 	    if (this.stage != 4) {
 		this.stage = 4;
 		this.balloon.setText('MOAR ENEMIES!');
@@ -465,6 +465,7 @@ class Game extends GameScene {
 	    if (this.stage != 5) {
 		this.stage = 5;
 		this.balloon.setText('SNOW!?');
+		APP.setMusic('hard', MP3_GAP, 15.0);
 	    }
 	    this.weather = 2;
 	    this.snows.move(new Vec2(-this.speed, 2.0));
