@@ -242,9 +242,9 @@ class PlanMapSprite extends Sprite {
     start: Vec2 = null;
     plan: PlanMap = null;
     
-    render(ctx:CanvasRenderingContext2D, bx:number, by:number) {
+    render(ctx:CanvasRenderingContext2D) {
 	if (this.plan !== null) {
-	    this.plan.render(ctx, bx, by, this.start);
+	    this.plan.render(ctx, this.start);
 	}
     }
 }
@@ -279,18 +279,12 @@ class PlanningEntity extends PlatformerEntity implements PlatformerActor {
 	}
     }
 
-    init() {
-	super.init();
+    getSprites(): Sprite[] {
+	let sprites = super.getSprites();
 	if (this.mapSprite !== null) {
-	    this.layer.addSprite(this.mapSprite);
+	    sprites.push(this.mapSprite);
 	}
-    }
-
-    stop() {
-	if (this.mapSprite !== null) {
-	    this.layer.removeSprite(this.mapSprite);
-	}
-	super.stop();
+	return sprites;
     }
 
     setHitbox(hitbox: Rect) {

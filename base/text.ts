@@ -2,7 +2,7 @@
 /// <reference path="geom.ts" />
 /// <reference path="task.ts" />
 /// <reference path="sprite.ts" />
-/// <reference path="entity.ts" />
+/// <reference path="layer.ts" />
 
 
 function makeGlyphs(src: HTMLImageElement, color: string=null,
@@ -357,16 +357,14 @@ class BannerBox extends Widget {
 	this.sprite = new FixedSprite(this.textbox);
     }
 
-    init() {
-	super.init();
-	this.layer.addSprite(this.sprite);
+    getSprites(): Sprite[] {
+	let sprites = super.getSprites();
+	if (this.sprite !== null) {
+	    sprites.push(this.sprite);
+	}
+	return sprites;
     }
 
-    stop() {
-	this.layer.removeSprite(this.sprite);
-	super.stop();
-    }
-    
     update() {
 	super.update();
 	if (0 < this.interval) {
@@ -670,20 +668,12 @@ class DialogBox extends Widget {
 	this.queue = [];
     }
 
-    init() {
-	super.init();
-	if (this.layer !== null) {
-	    this.layer.addSprite(this.sprite);
-	}
+    getSprites(): Sprite[] {
+	let sprites = super.getSprites();
+	sprites.push(this.sprite);
+	return sprites;
     }
 
-    stop() {
-	if (this.layer !== null) {
-	    this.layer.removeSprite(this.sprite);
-	}
-	super.stop();
-    }
-    
     tick() {
 	super.tick();
 	let task:TextTask = null;

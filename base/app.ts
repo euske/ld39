@@ -113,21 +113,6 @@ class App {
 	this._keylock = getTime()+t;
     }
 
-    setMusic(music: HTMLAudioElement=null, start=0, end=0) {
-	if (this._music !== null) {
-	    this._music.pause();
-	}
-	this._music = music;
-	this._loop_start = start;
-	this._loop_end = end;
-	if (this._music !== null) {
-	    if (0 < this._music.readyState) { // for IE bug
-		this._music.currentTime = MP3_GAP;
-	    }
-	    this._music.play();
-	}
-    }
-  
     keyDown(ev: KeyboardEvent) {
 	if (0 < this._keylock) return;
 	let keysym = getKeySym(ev.keyCode);
@@ -314,10 +299,28 @@ class App {
     repaint() {
 	this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 	this.ctx.save();
-	this.scene.render(this.ctx, 0, 0);
+	this.scene.render(this.ctx);
 	this.ctx.restore();
     }
 
+    setMusic(name: string=null, start=MP3_GAP, end=0) {
+	if (this._music !== null) {
+	    this._music.pause();
+	}
+	if (name === null) {
+	    this._music = null;
+	} else {
+	    let sound = this.sounds[name];
+	    this._loop_start = start;
+	    this._loop_end = (end < 0)? sound.duration : end;
+	    if (0 < sound.readyState) { // for IE bug
+		sound.currentTime = MP3_GAP;
+	    }
+	    this._music = sound;
+	    this._music.play();
+	}
+    }
+  
     /** Play a sound resource. 
      * @param sound Sound name.
      * @param start Start position.

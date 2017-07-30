@@ -1,8 +1,8 @@
 /// <reference path="utils.ts" />
 /// <reference path="geom.ts" />
 /// <reference path="task.ts" />
-/// <reference path="entity.ts" />
 /// <reference path="layer.ts" />
+/// <reference path="entity.ts" />
 
 
 //  Scene
@@ -31,7 +31,7 @@ class Scene {
 	// [OVERRIDE]
     }
 
-    render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
+    render(ctx: CanvasRenderingContext2D) {
 	// [OVERRIDE]
     }
 
@@ -108,9 +108,10 @@ class HTMLScene extends Scene {
 	e.onmousedown = (function (e) { scene.change(); });
     }
   
-    render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
+    render(ctx: CanvasRenderingContext2D) {
 	ctx.fillStyle = 'rgb(0,0,0)';
-	ctx.fillRect(bx, by, this.screen.width, this.screen.height);
+	ctx.fillRect(this.screen.x, this.screen.y,
+		     this.screen.width, this.screen.height);
     }
 
     change() {
@@ -133,35 +134,41 @@ class HTMLScene extends Scene {
 class GameScene extends Scene {
 
     tasklist: TaskList;
+    world: EntityWorld;
     layer: ScrollLayer;
 
     constructor() {
 	super();
 	this.tasklist = new TaskList();
+	this.world = new EntityWorld();
 	this.layer = new ScrollLayer(this.screen);
     }
 
     init() {
 	super.init();
 	this.tasklist.init();
+	this.world.init();
 	this.layer.init();
     }
 
     tick() {
 	super.tick();
 	this.tasklist.tick();
-	this.layer.tick();
+	this.world.tick();
     }
 
-    render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
-	super.render(ctx, bx, by);
-	this.layer.render(ctx, bx, by);
+    render(ctx: CanvasRenderingContext2D) {
+	super.render(ctx);
+	this.layer.render(ctx);
     }
 
     add(task: Task) {
 	this.tasklist.add(task);
 	if (task instanceof Widget) {
 	    task.layer = this.layer;
+	}
+	if (task instanceof Entity) {
+	    task.world = this.world;
 	}
     }
 

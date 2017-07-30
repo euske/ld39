@@ -2,20 +2,96 @@
 /// <reference path="geom.ts" />
 /// <reference path="task.ts" />
 /// <reference path="sprite.ts" />
+/// <reference path="layer.ts" />
 /// <reference path="tilemap.ts" />
 
 
-//  Widget
-//
-class Widget extends Task {
+//  EntityWorld
+// 
+class EntityWorld {
 
-    layer: Layer = null;
+    entities: Entity[] = [];
     
-    chain(task: Task): Task {
-	if (task instanceof Widget) {
-	    task.layer = this.layer;
+    toString() {
+	return ('<EntityWorld: entities='+this.entities+'>');
+    }
+  
+    init() {
+	this.entities = [];
+    }
+  
+    tick() {
+	this.checkEntityCollisions();
+    }
+
+    addEntity(entity: Entity) {
+	this.entities.push(entity);
+    }
+
+    removeEntity(entity: Entity) {
+	removeElement(this.entities, entity);
+    }
+
+    moveAll(v: Vec2) {
+	for (let entity of this.entities) {
+	    if (!entity.running) continue;
+	    entity.movePos(v);
 	}
-	return super.chain(task);
+    }
+
+    checkEntityCollisions() {
+	this.checkEntityPairs(
+	    (e0:Entity, e1:Entity) => {
+		e0.collidedWith(e1);
+		e1.collidedWith(e0);
+	    });
+    }
+
+    checkEntityPairs(f: (e0:Entity, e1:Entity)=>void) {
+	for (let i = 0; i < this.entities.length; i++) {
+	    let entity0 = this.entities[i];
+	    if (entity0.running) {
+		let collider0 = entity0.getCollider();
+		if (collider0 !== null) {
+		    let a = this.findEntities(
+			(e:Entity) => {
+			    let collider1 = e.getCollider();
+			    return (entity0 !== e &&
+				    collider1 !== null &&
+				    collider0.overlaps(collider1));
+			},
+			this.entities.slice(i+1));
+		    for (let e of a) {
+			f(entity0, e);
+		    }
+		}
+	    }
+	}
+    }
+
+    findEntities(f: (e:Entity)=>boolean, entities: Entity[]=null) {
+	if (entities === null) {
+	    entities = this.entities;
+	}
+	let a:Entity[] = [];
+	for (let entity1 of entities) {
+	    if (entity1.running && f(entity1)) {
+		a.push(entity1);
+	    }
+	}
+	return a;
+    }
+    
+    hasEntity(f: (e:Entity)=>boolean, collider0: Collider) {
+	for (let entity1 of this.entities) {
+	    if (entity1.running && f(entity1)) {
+		let collider1 = entity1.getCollider();
+		if (collider1 !== null && collider0.overlaps(collider1)) {
+		    return true;
+		}
+	    }
+	}
+	return false;
     }
 }
 
@@ -25,6 +101,8 @@ class Widget extends Task {
 //
 class Entity extends Widget {
 
+    world: EntityWorld = null;
+    
     pos: Vec2;
     sprite: Sprite;
     imgsrc: ImageSource = null;
@@ -40,19 +118,20 @@ class Entity extends Widget {
 	return '<Entity: '+this.pos+'>';
     }
 
+    chain(task: Task, signal: Signal=null): Task {
+	if (task instanceof Entity) {
+	    task.world = this.world;
+	}
+	return super.chain(task, signal);
+    }
+
     init() {
 	super.init();
-	this.layer.addEntity(this);
-	if (this.sprite !== null) {
-	    this.layer.addSprite(this.sprite);
-	}
+	this.world.addEntity(this);
     }
 
     stop() {
-	if (this.sprite !== null) {
-	    this.layer.removeSprite(this.sprite);
-	}
-	this.layer.removeEntity(this);
+	this.world.removeEntity(this);
 	super.stop();
     }
     
@@ -103,6 +182,14 @@ class Entity extends Widget {
 	v = this.getMove(this.pos, v, context);
 	this.movePos(v);
 	return v;
+    }
+
+    getSprites(): Sprite[] {
+	let sprites = super.getSprites();
+	if (this.sprite !== null) {
+	    sprites.push(this.sprite);
+	}
+	return sprites;
     }
 
     renderExtra(ctx: CanvasRenderingContext2D) {
