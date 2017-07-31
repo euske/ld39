@@ -379,7 +379,7 @@ class Game extends GameScene {
 	this.stage = 0;
 	this.speed = 1;
 	this.deltaspeed = 0;
-	this.distance = 5000;
+	this.distance = 0;
 	this.nextobj = 0;
 	this.weather = 0;
 	
